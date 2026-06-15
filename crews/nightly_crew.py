@@ -5,6 +5,7 @@ import datetime
 import base64
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
+from reporting import write_crew_outputs
 
 # ── Langfuse Tracing (optional — graceful fallback) ──────────
 try:
@@ -138,21 +139,8 @@ if __name__ == "__main__":
     
     result = nightly_crew.kickoff()
     
-    # Save result to logs
-    logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
-    os.makedirs(logs_dir, exist_ok=True)
-    
-    log_entry = {
-        "timestamp": datetime.datetime.now().isoformat(),
-        "crew": "nightly",
-        "mode": mode,
-        "result": str(result)
-    }
-    
-    log_path = os.path.join(logs_dir, "automation_log.jsonl")
-    with open(log_path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(log_entry) + "\n")
+    log_entry = write_crew_outputs("nightly", mode, result)
     
     print(f"\n--- Nightly Crew Complete [{mode}] ---")
-    print(f"Log saved to: {log_path}")
+    print(f"Report saved to: {log_entry['report']}")
     print(result)

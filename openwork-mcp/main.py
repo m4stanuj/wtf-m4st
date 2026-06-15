@@ -2,11 +2,12 @@ import os
 import json
 import subprocess
 import shlex
+import asyncio
 import httpx
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Query
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
@@ -56,6 +57,13 @@ def verify_read_token(x_m4st_token: Optional[str] = Header(None)):
     if x_m4st_token not in READ_TOKENS:
         raise HTTPException(status_code=401, detail="Unauthorized: invalid read token")
     return x_m4st_token
+
+def verify_read_token_value(token: Optional[str]):
+    if not READ_TOKENS:
+        raise HTTPException(status_code=503, detail="Read token is not configured")
+    if token not in READ_TOKENS:
+        raise HTTPException(status_code=401, detail="Unauthorized: invalid read token")
+    return token
 
 def verify_admin_token(x_m4st_token: Optional[str] = Header(None)):
     if not ADMIN_TOKENS:
@@ -241,6 +249,28 @@ async def get_logs(limit: int = 25):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read logs: {str(e)}")
+
+
+@app.get("/api/logs/stream")
+async def stream_logs(token: Optional[str] = Query(None)):
+    """Stream automation log entries to the dashboard via SSE."""
+    verify_read_token_value(token)
+    log_path = LOGS_DIR / "automation_log.jsonl"
+
+    async def events():
+        position = 0
+        while True:
+            if log_path.exists():
+                with open(log_path, "r", encoding="utf-8") as f:
+                    f.seek(position)
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            yield f"data: {line}\n\n"
+                    position = f.tell()
+            await asyncio.sleep(1)
+
+    return StreamingResponse(events(), media_type="text/event-stream")
 
 
 # ═══════════════════════════════════════════════════════════════

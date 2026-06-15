@@ -5,6 +5,7 @@ import base64
 import datetime
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
+from reporting import write_crew_outputs
 
 # ── Langfuse Tracing (optional) ──────────────────────────────
 try:
@@ -110,12 +111,8 @@ if __name__ == "__main__":
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(str(result))
     
-    # Log
-    logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
-    os.makedirs(logs_dir, exist_ok=True)
-    log_entry = {"timestamp": datetime.datetime.now().isoformat(), "crew": "content", "mode": mode, "output": output_path}
-    with open(os.path.join(logs_dir, "automation_log.jsonl"), "a") as f:
-        f.write(json.dumps(log_entry) + "\n")
+    log_entry = write_crew_outputs("content", mode, result, {"output": output_path})
     
     print(f"\n--- Content Crew Complete [{mode}] ---")
     print(f"Draft saved to: {output_path}")
+    print(f"Report saved to: {log_entry['report']}")

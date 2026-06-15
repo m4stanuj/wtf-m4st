@@ -37,14 +37,28 @@ jobs:
         run: |
           python -m py_compile \
             openwork-mcp/main.py \
+            crews/reporting.py \
             crews/nightly_crew.py \
             crews/content_crew.py \
             crews/bugfix_crew.py \
             scripts/nightly_telegram_report.py \
             scripts/cognee_index_changed.py \
-            scripts/cognee_full_reindex.py
+            scripts/cognee_full_reindex.py \
+            scripts/check_text_encoding.py \
+            scripts/verify_foundation.py
+
+      - name: Check text encoding
+        run: python scripts/check_text_encoding.py
+
+      - name: Run backend smoke tests
+        run: |
+          python -m pip install fastapi httpx pydantic pytest
+          python -m pytest -q
 
       - name: Validate compose files
         run: |
           docker compose -f docker-compose.yml config >/tmp/root-compose.yml
           docker compose -f docker/docker-compose.yml config >/tmp/full-compose.yml
+
+      - name: Build OpenWork Docker image
+        run: docker build -f openwork-mcp/Dockerfile -t wtf-m4st-openwork:test .

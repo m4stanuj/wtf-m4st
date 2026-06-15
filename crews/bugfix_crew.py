@@ -5,6 +5,7 @@ import base64
 import datetime
 from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
+from reporting import write_crew_outputs
 
 # ── Langfuse Tracing (optional) ──────────────────────────────
 try:
@@ -93,12 +94,8 @@ if __name__ == "__main__":
     
     result = bugfix_crew.kickoff()
     
-    # Log
-    logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
-    os.makedirs(logs_dir, exist_ok=True)
-    log_entry = {"timestamp": datetime.datetime.now().isoformat(), "crew": "bugfix", "mode": mode, "result": str(result)[:500]}
-    with open(os.path.join(logs_dir, "automation_log.jsonl"), "a") as f:
-        f.write(json.dumps(log_entry) + "\n")
+    log_entry = write_crew_outputs("bugfix", mode, result)
     
     print(f"\n--- Bug Fix Crew Complete [{mode}] ---")
+    print(f"Report saved to: {log_entry['report']}")
     print(result)
