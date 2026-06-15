@@ -1,0 +1,18 @@
+[project]
+name = "wtf-m4st"
+version = "8.2.0"
+requires-python = ">=3.12"
+dependencies = [
+  "crewai==1.14.6",
+  "crewai-tools==1.14.6",
+  "fastapi==0.115.6",
+  "httpx==0.28.1",
+  "langchain-openai==0.3.28",
+  "openlit==1.35.0",
+  "pydantic==2.10.4",
+  "python-dotenv==1.0.1",
+  "uvicorn==0.34.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

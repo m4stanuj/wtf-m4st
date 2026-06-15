@@ -1,35 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
-import { API_BASE, API_TOKEN, RAM_INTERVAL } from '../config';
+import { API_BASE, RAM_INTERVAL, authHeaders } from '../config';
 
-// Realistic mock — based on actual M4ST RAM budget
-const MOCK_RAM = {
-  usedGb: 7.15,
+const OFFLINE_RAM = {
+  usedGb: 0,
   totalGb: 16,
-  containers: {
-    'falkordb': 1024,
-    'langfuse': 600,
-    'openclaw': 500,
-    'cognee-mcp': 500,
-    'graphiti-mcp': 400,
-    'ninerouter': 200,
-    'openwork-mcp': 200,
-    'uptime-kuma': 200,
-    'sepcc': 50
-  },
-  pct: 45,
-  estimated: false
+  containers: {},
+  pct: 0,
+  estimated: true,
+  offline: true,
 };
 
 export function useRam() {
-  const [ram, setRam] = useState(MOCK_RAM);
+  const [ram, setRam] = useState(OFFLINE_RAM);
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/ram`, {
-        headers: { 'X-M4ST-Token': API_TOKEN },
-        signal: AbortSignal.timeout(3000)
+        headers: authHeaders(),
+        signal: AbortSignal.timeout(3000),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const pct = Math.round((data.used_gb / data.total_gb) * 100);
       setRam({
@@ -37,17 +27,21 @@ export function useRam() {
         totalGb: data.total_gb,
         containers: data.containers || {},
         pct,
-        estimated: !!data.estimated
+        estimated: !!data.estimated,
+        offline: false,
       });
     } catch {
-      // Keep mock data — dashboard stays alive
+      setRam(OFFLINE_RAM);
     }
   }, []);
 
   useEffect(() => {
-    refresh();
+    const initial = setTimeout(refresh, 0);
     const id = setInterval(refresh, RAM_INTERVAL);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(id);
+    };
   }, [refresh]);
 
   return ram;

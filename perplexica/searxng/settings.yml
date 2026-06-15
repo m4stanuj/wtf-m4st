@@ -9,7 +9,7 @@ search:
   autocomplete: "google"
 
 server:
-  secret_key: "m4st-searxng-secret-key-2026"
+  secret_key: "${SEARXNG_SECRET_KEY}"
   limiter: false
   image_proxy: true
 

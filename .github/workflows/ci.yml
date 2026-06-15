@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Lint dashboard
+        working-directory: dashboard
+        run: npm run lint
+
+      - name: Build dashboard
+        working-directory: dashboard
+        run: npm run build
+
+      - name: Compile Python files
+        run: |
+          python -m py_compile \
+            openwork-mcp/main.py \
+            crews/nightly_crew.py \
+            crews/content_crew.py \
+            crews/bugfix_crew.py \
+            scripts/nightly_telegram_report.py \
+            scripts/cognee_index_changed.py \
+            scripts/cognee_full_reindex.py
+
+      - name: Validate compose files
+        run: |
+          docker compose -f docker-compose.yml config >/tmp/root-compose.yml
+          docker compose -f docker/docker-compose.yml config >/tmp/full-compose.yml

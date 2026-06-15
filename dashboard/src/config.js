@@ -5,7 +5,11 @@
 
 // API Configuration
 export const API_BASE = import.meta.env.VITE_API_BASE || '';
-export const API_TOKEN = import.meta.env.VITE_API_TOKEN || 'default_secret_token';
+export const API_TOKEN = import.meta.env.VITE_API_TOKEN || '';
+
+export function authHeaders(extra = {}) {
+  return API_TOKEN ? { ...extra, 'X-M4ST-Token': API_TOKEN } : extra;
+}
 
 // Polling intervals
 export const HEALTH_INTERVAL = 10_000;  // 10s

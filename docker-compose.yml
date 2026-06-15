@@ -1,59 +1,70 @@
-version: "3.9"
 services:
   openclaw:
     image: openclaw/openclaw:latest
     restart: unless-stopped
     mem_limit: 600m
-    ports: ["3001:3001"]
+    ports: ["127.0.0.1:3001:3001"]
 
   ninerouter:
     image: decolua/9router:latest
     restart: unless-stopped
     mem_limit: 300m
-    ports: ["20128:20128", "20129:20129"]
+    ports:
+      - "127.0.0.1:20128:20128"
+      - "127.0.0.1:20129:20129"
 
   falkordb:
     image: falkordb/falkordb:latest
     restart: unless-stopped
     mem_limit: 1200m
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
 
   graphiti-mcp:
     image: chen9z/graphiti_mcp_server:latest
     restart: unless-stopped
     mem_limit: 500m
-    ports: ["8001:8001"]
+    ports: ["127.0.0.1:8001:8001"]
     environment:
-      - FALKORDB_URI=bolt://falkordb:6379
+      FALKORDB_URI: bolt://falkordb:6379
+    depends_on: [falkordb]
 
   cognee-mcp:
     image: cognee/cognee-mcp:main
     restart: unless-stopped
     mem_limit: 600m
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]
 
   langfuse:
     image: langfuse/langfuse:latest
     restart: unless-stopped
     mem_limit: 700m
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
 
   uptime-kuma:
     image: louislam/uptime-kuma:2
     restart: unless-stopped
     mem_limit: 250m
-    ports: ["3002:3001"]
+    ports: ["127.0.0.1:3002:3001"]
 
   openwork-mcp:
-    build: ./openwork-mcp
+    build:
+      context: .
+      dockerfile: openwork-mcp/Dockerfile
     restart: unless-stopped
-    mem_limit: 250m
-    ports: ["8765:8765"]
+    mem_limit: 500m
+    ports: ["127.0.0.1:8765:8765"]
     environment:
-      - M4ST_TOKEN=default_secret_token
-
-  sepcc:
-    build: ./sepcc
-    restart: unless-stopped
-    mem_limit: 100m
-    ports: ["8082:8082"]
+      M4ST_TOKEN: ${M4ST_TOKEN:-}
+      M4ST_ADMIN_TOKENS: ${M4ST_ADMIN_TOKENS:-}
+      M4ST_READ_TOKENS: ${M4ST_READ_TOKENS:-}
+      M4ST_CORS_ORIGINS: ${M4ST_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8765,http://127.0.0.1:8765}
+    volumes:
+      - ./logs:/app/logs
+      - ./drafts:/app/drafts
+      - ./reports:/app/reports
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on: [openclaw, graphiti-mcp, cognee-mcp]

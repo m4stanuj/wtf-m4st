@@ -4,7 +4,7 @@ import { useRam } from './hooks/useRam';
 import { useLogs } from './hooks/useLogs';
 import { useToast } from './hooks/useToast';
 import { useCrewRunner } from './hooks/useCrewRunner';
-import { API_BASE, API_TOKEN } from './config';
+import { API_BASE, authHeaders } from './config';
 
 import ToastContainer from './components/Toast';
 import Header from './sections/Header';
@@ -28,24 +28,22 @@ export default function App() {
   const handleRefresh = useCallback(() => {
     refreshHealth();
     refreshLogs();
-    showToast('🔄 Status refreshed', 'info');
+    showToast('Status refreshed', 'info');
   }, [refreshHealth, refreshLogs, showToast]);
 
   const handleTestMemory = useCallback(async () => {
-    showToast('🧠 Testing Graphiti memory...', 'info');
+    showToast('Testing Graphiti memory...', 'info');
     try {
       const res = await fetch(`${API_BASE}/memory/query`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-M4ST-Token': API_TOKEN },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ query: 'What was our last conversation about?', type: 'conversation' }),
-        signal: AbortSignal.timeout(8000)
+        signal: AbortSignal.timeout(8000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast('✅ Memory query successful', 'success');
-    } catch {
-      // Simulate success when backend is down
-      await new Promise(r => setTimeout(r, 600));
-      showToast('✅ Memory: Graphiti responded — 3 episodes found', 'success');
+      showToast('Memory query successful', 'success');
+    } catch (err) {
+      showToast(`Memory query failed: ${err.message}`, 'error');
     }
   }, [showToast]);
 
