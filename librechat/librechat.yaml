@@ -1,0 +1,98 @@
+# ================================================================
+# LibreChat config for M4ST v8.2-local
+# Connected to 9Router for multi-model routing
+# ================================================================
+version: 1.2.1
+cache: true
+
+registration:
+  socialLogins: []
+  allowedDomains: []
+
+endpoints:
+  custom:
+    # ── Groq (Fast — Free Tier) ──────────────────────────────
+    - name: "Groq"
+      apiKey: "${GROQ_API_KEY}"
+      baseURL: "https://api.groq.com/openai/v1"
+      models:
+        default:
+          - "llama-3.3-70b-versatile"
+          - "llama-3.1-8b-instant"
+          - "gemma2-9b-it"
+          - "mixtral-8x7b-32768"
+        fetch: false
+      titleConvo: true
+      titleModel: "llama-3.3-70b-versatile"
+      summarize: false
+      forcePrompt: false
+      modelDisplayLabel: "Groq"
+      iconURL: "https://groq.com/favicon.ico"
+
+    # ── DeepSeek (Deep — Cheap $0.028/1M) ────────────────────
+    - name: "DeepSeek"
+      apiKey: "${DEEPSEEK_API_KEY}"
+      baseURL: "https://api.deepseek.com/v1"
+      models:
+        default:
+          - "deepseek-chat"
+          - "deepseek-reasoner"
+        fetch: false
+      titleConvo: true
+      titleModel: "deepseek-chat"
+      modelDisplayLabel: "DeepSeek"
+
+    # ── OpenRouter (100+ models) ─────────────────────────────
+    - name: "OpenRouter"
+      apiKey: "${OPENROUTER_API_KEY}"
+      baseURL: "https://openrouter.ai/api/v1"
+      models:
+        default:
+          - "google/gemini-2.5-flash-preview"
+          - "anthropic/claude-sonnet-4"
+          - "meta-llama/llama-3.3-70b-instruct"
+          - "qwen/qwen-2.5-72b-instruct"
+        fetch: true
+      titleConvo: true
+      titleModel: "google/gemini-2.5-flash-preview"
+      modelDisplayLabel: "OpenRouter"
+
+    # ── Google Gemini (Free) ─────────────────────────────────
+    - name: "Gemini"
+      apiKey: "${GEMINI_API_KEY}"
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
+      models:
+        default:
+          - "gemini-2.5-flash"
+          - "gemini-2.5-pro"
+          - "gemini-2.0-flash"
+        fetch: false
+      titleConvo: true
+      titleModel: "gemini-2.5-flash"
+      modelDisplayLabel: "Gemini"
+
+    # ── Cerebras (Ultra-Fast Inference) ──────────────────────
+    - name: "Cerebras"
+      apiKey: "${CEREBRAS_API_KEY}"
+      baseURL: "https://api.cerebras.ai/v1"
+      models:
+        default:
+          - "llama-3.3-70b"
+          - "llama-3.1-8b"
+        fetch: false
+      titleConvo: true
+      titleModel: "llama-3.3-70b"
+      modelDisplayLabel: "Cerebras"
+
+    # ── SambaNova (Fast — Free) ──────────────────────────────
+    - name: "SambaNova"
+      apiKey: "${SAMBANOVA_API_KEY}"
+      baseURL: "https://api.sambanova.ai/v1"
+      models:
+        default:
+          - "Meta-Llama-3.3-70B-Instruct"
+          - "DeepSeek-R1"
+        fetch: false
+      titleConvo: true
+      titleModel: "Meta-Llama-3.3-70B-Instruct"
+      modelDisplayLabel: "SambaNova"

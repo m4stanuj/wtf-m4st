@@ -1,0 +1,16 @@
+[general]
+port = 3001
+similarity_measure = "cosine"
+
+[models.chat]
+provider = "groq"
+model = "llama-3.3-70b-versatile"
+api_key = "your-groq-api-key"
+
+[models.embedding]
+provider = "google"
+model = "text-embedding-004"
+api_key = "your-gemini-api-key"
+
+[api]
+searxng = "http://perplexica-searxng:8080"

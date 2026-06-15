@@ -1,0 +1,30 @@
+.service-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+
+.service-item {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.55rem 0.85rem; border-radius: var(--radius-md);
+  transition: background var(--duration) var(--ease-out); cursor: default;
+}
+.service-item:hover { background: rgba(255,255,255,0.03); }
+
+.service-info { flex: 1; min-width: 0; }
+.service-name { font-family: var(--font-mono); font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+.service-port { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); }
+
+.service-status-label {
+  font-family: var(--font-mono); font-size: 0.65rem; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+}
+.service-status-label--healthy   { color: var(--green-dim); }
+.service-status-label--unhealthy { color: var(--amber-dim); }
+.service-status-label--down      { color: var(--red-dim); }
+.service-status-label--unknown   { color: var(--text-muted); }
+
+.service-link {
+  opacity: 0; color: var(--text-muted); font-size: 0.85rem;
+  transition: all var(--duration) var(--ease-out); text-decoration: none; flex-shrink: 0;
+}
+.service-item:hover .service-link { opacity: 1; }
+.service-link:hover { color: var(--green); }
+
+@media (max-width: 640px) { .service-grid { grid-template-columns: 1fr; } }

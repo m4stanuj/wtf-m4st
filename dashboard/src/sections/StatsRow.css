@@ -1,0 +1,34 @@
+.stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1rem; margin-bottom: 2rem;
+}
+.stat-card { padding: 1.25rem 1.5rem; position: relative; overflow: hidden; }
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  opacity: 0; transition: opacity var(--duration) var(--ease-out);
+}
+.stat-card:hover::before { opacity: 1; }
+
+.stat-icon { font-size: 1.4rem; margin-bottom: 0.4rem; }
+.stat-value {
+  font-family: var(--font-mono); font-size: 2rem; font-weight: 800;
+  color: var(--text-bright); line-height: 1.1; letter-spacing: -0.03em;
+}
+.stat-unit { font-size: 0.85rem; font-weight: 400; color: var(--text-muted); margin-left: 2px; }
+.stat-label {
+  font-size: 0.72rem; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.25rem;
+}
+.stat-card--green .stat-value { color: var(--green); }
+.stat-card--amber .stat-value { color: var(--amber); }
+.stat-card--blue  .stat-value { color: var(--blue); }
+.stat-card--purple .stat-value { color: var(--purple); }
+
+.stat-card--green::before { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+.stat-card--amber::before { background: linear-gradient(90deg, transparent, var(--amber), transparent); }
+.stat-card--blue::before  { background: linear-gradient(90deg, transparent, var(--blue), transparent); }
+.stat-card--purple::before { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+
+@media (max-width: 1024px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px)  { .stats-row { grid-template-columns: 1fr; } }

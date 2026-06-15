@@ -1,0 +1,5 @@
+.quick-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+@media (max-width: 480px) {
+  .quick-grid { flex-direction: column; }
+  .quick-grid .btn { width: 100%; }
+}

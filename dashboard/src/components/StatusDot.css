@@ -1,0 +1,27 @@
+.status-dot {
+  display: inline-block;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all var(--duration) var(--ease-out);
+}
+
+.status-dot--healthy {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.6);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.status-dot--unhealthy {
+  background: var(--amber);
+  box-shadow: 0 0 8px rgba(255, 184, 48, 0.6);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.status-dot--down {
+  background: var(--red);
+  box-shadow: 0 0 8px rgba(255, 59, 92, 0.6);
+}
+
+.status-dot--unknown {
+  background: var(--text-muted);
+}

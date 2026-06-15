@@ -1,0 +1,65 @@
+# ══════════════════════════════════════════
+# WTF M4ST — .gitignore
+# ══════════════════════════════════════════
+
+# ── Secrets (CRITICAL — never commit) ─────
+.env
+.env.*
+!.env.example
+.npmrc
+.pypirc
+.netrc
+.git-credentials
+*.pem
+*.key
+*.crt
+
+# ── Logs & Generated Output ──────────────
+logs/
+*.log
+*.jsonl
+drafts/
+reports/
+
+# ── Python ────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+
+# ── Node ──────────────────────────────────
+node_modules/
+.next/
+.nuxt/
+dashboard/dist/
+
+# ── IDE ───────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+ide-config/
+
+# ── Docker ────────────────────────────────
+*.pid
+docker-compose.override.yml
+
+# ── OS ────────────────────────────────────
+Desktop.ini
+ehthumbs.db
+
+# ── Internal docs (NOT for repo) ──────────
+M4ST_SOUL.md
+MASTER_PLAN.md
+AGENTS.md
+M4ST_complete_v3.4_full/
+
+# ── Submodules (managed separately) ──────
+graphiti_mcp_server/
+sepcc/

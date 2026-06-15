@@ -1,0 +1,232 @@
+version: "3.9"
+
+# ================================================================
+# M4ST v8.2-local — Docker Compose (Phase A Upgraded)
+# Always-on services: ~8.3GB RAM
+# Phase A additions: Perplexica (AI search), LibreChat (chat UI)
+# On-demand (start manually): Pentest MCP, Crawl4AI, browser-use
+# ================================================================
+
+networks:
+  m4st:
+    driver: bridge
+
+volumes:
+  falkordb_data:
+  langfuse_postgres:
+  langfuse_clickhouse:
+  uptime_kuma_data:
+  librechat_mongodb:
+  librechat_meilisearch:
+  perplexica_data:
+
+services:
+
+  # ── Core runtime ─────────────────────────────────────────────
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest
+    restart: unless-stopped
+    mem_limit: 600m
+    networks: [m4st]
+    ports: ["3001:3001"]
+    env_file: ../.env
+    volumes:
+      - ../logs:/app/logs
+      - ../drafts:/app/drafts
+
+  # ── LLM Router + MITM ────────────────────────────────────────
+  ninerouter:
+    image: decolua/9router:latest
+    restart: unless-stopped
+    mem_limit: 300m
+    networks: [m4st]
+    ports:
+      - "20128:20128"   # API + dashboard
+      - "20129:20129"   # MITM proxy (intercepts IDE LLM calls)
+
+  # ── Graph DB (for Graphiti) ───────────────────────────────────
+  falkordb:
+    image: falkordb/falkordb:latest
+    restart: unless-stopped
+    mem_limit: 1200m
+    networks: [m4st]
+    ports: ["6379:6379"]
+    volumes:
+      - falkordb_data:/data
+
+  # ── Temporal memory MCP (SSE) ────────────────────────────────
+  graphiti-mcp:
+    build:
+      context: ../graphiti_mcp_server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 500m
+    networks: [m4st]
+    ports: ["8001:8000"]
+    environment:
+      - FALKORDB_URI=bolt://falkordb:6379
+      - OPENAI_API_KEY=${NINEROUTER_API_KEY}
+      - OPENAI_BASE_URL=${NINEROUTER_BASE_URL}
+      - MODEL=${MODEL_FAST}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    depends_on: [falkordb]
+
+  # ── Project knowledge graph MCP ───────────────────────────────
+  cognee-mcp:
+    image: cognee/cognee-mcp:main
+    restart: unless-stopped
+    mem_limit: 600m
+    networks: [m4st]
+    ports: ["8000:8000"]
+    env_file: ../.env
+
+  # ── LLM observability — Langfuse needs Postgres + ClickHouse ─
+  langfuse-db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    mem_limit: 300m
+    networks: [m4st]
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_postgres:/var/lib/postgresql/data
+
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    restart: unless-stopped
+    mem_limit: 400m
+    networks: [m4st]
+    environment:
+      CLICKHOUSE_DB: langfuse
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: langfuse
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+
+  langfuse:
+    image: langfuse/langfuse:latest
+    restart: unless-stopped
+    mem_limit: 700m
+    networks: [m4st]
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse:langfuse@langfuse-clickhouse:9000/langfuse
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: langfuse
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: m4st-langfuse-secret-change-me
+      SALT: m4st-langfuse-salt-change-me
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+    depends_on: [langfuse-db, langfuse-clickhouse]
+
+  # ── Service health monitor ────────────────────────────────────
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    restart: unless-stopped
+    mem_limit: 250m
+    networks: [m4st]
+    ports: ["3002:3001"]
+    volumes:
+      - uptime_kuma_data:/app/data
+
+  # ── IDE tool/memory bridge ────────────────────────────────────
+  openwork-mcp:
+    build:
+      context: ../openwork-mcp
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 250m
+    networks: [m4st]
+    ports: ["8765:8765"]
+    environment:
+      - M4ST_TOKEN=${M4ST_TOKEN}
+    env_file: ../.env
+    depends_on: [openclaw, graphiti-mcp, cognee-mcp]
+
+  # ── Claude Code session proxy ─────────────────────────────────
+  sepcc:
+    build:
+      context: ../sepcc
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    mem_limit: 100m
+    networks: [m4st]
+    ports: ["8082:8082"]
+    env_file: ../.env
+    environment:
+      - FCC_AUTO_RESUME_LAST_SESSION=true
+
+  # ── Phase A: Perplexica (Vane) — Self-hosted AI Search ───────
+  perplexica:
+    image: itzcrazykns1337/vane:latest
+    restart: unless-stopped
+    mem_limit: 500m
+    networks: [m4st]
+    ports: ["3010:3000"]
+    volumes:
+      - perplexica_data:/home/vane/data
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+
+  # ── Phase A: LibreChat — ChatGPT-like Frontend ─────────────
+  librechat-mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    mem_limit: 300m
+    networks: [m4st]
+    volumes:
+      - librechat_mongodb:/data/db
+    command: mongod --noauth
+
+  librechat-meilisearch:
+    image: getmeili/meilisearch:v1.12
+    restart: unless-stopped
+    mem_limit: 150m
+    networks: [m4st]
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=m4st-meili-master-key
+    volumes:
+      - librechat_meilisearch:/meili_data
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    restart: unless-stopped
+    mem_limit: 400m
+    networks: [m4st]
+    ports: ["3080:3080"]
+    environment:
+      - HOST=0.0.0.0
+      - MONGO_URI=mongodb://librechat-mongodb:27017/LibreChat
+      - MEILI_HOST=http://librechat-meilisearch:7700
+      - MEILI_MASTER_KEY=m4st-meili-master-key
+      - ENDPOINTS=openAI,custom
+      - OPENAI_API_KEY=${GROQ_API_KEY}
+      - OPENAI_REVERSE_PROXY=http://ninerouter:20128/v1
+      - SEARCH=true
+      - NO_INDEX=true
+    depends_on: [librechat-mongodb, librechat-meilisearch, ninerouter]
+
+# ================================================================
+# ON-DEMAND SERVICES (start manually, stop after use):
+#
+# Pentest MCP (88 tools, cap-add required):
+#   docker run -d --name pentest-mcp \
+#     --cap-add=NET_RAW --cap-add=NET_ADMIN \
+#     --network m4st_m4st \
+#     chfle/Pentest-MCP-Server
+#   docker stop pentest-mcp && docker rm pentest-mcp
+#
+# Crawl4AI (⚠ use v0.8.9+ — CVE-2026-26216 patched):
+#   bash ../scripts/start_crawl.sh start
+#   bash ../scripts/start_crawl.sh stop
+#
+# browser-use (ALWAYS Telegram gated):
+#   docker run --rm -it browser-use/browser-use
+# ================================================================

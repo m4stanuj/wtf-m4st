@@ -1,0 +1,16 @@
+.badge {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge--default { background: var(--green-glow); color: var(--green); }
+.badge--warn    { background: var(--amber-glow); color: var(--amber); }
+.badge--danger  { background: var(--red-glow);   color: var(--red); }
+.badge--info    { background: var(--blue-glow);   color: var(--blue); }
+.badge--purple  { background: var(--purple-glow); color: var(--purple); }
+.badge--muted   { background: rgba(255,255,255,0.05); color: var(--text-muted); }

@@ -1,0 +1,35 @@
+.logs-scroll {
+  max-height: 320px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.logs-empty {
+  text-align: center; padding: 2.5rem; color: var(--text-muted);
+  font-family: var(--font-mono); font-size: 0.8rem;
+}
+.log-row {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.5rem 0.65rem; border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 0.72rem;
+  transition: background var(--duration) var(--ease-out);
+  animation: fade-in 0.4s var(--ease-out) both;
+}
+.log-row:hover { background: rgba(255,255,255,0.025); }
+.log-time { color: var(--text-muted); flex-shrink: 0; min-width: 80px; font-size: 0.66rem; }
+.log-crew {
+  font-weight: 600; padding: 2px 10px; border-radius: var(--radius-full);
+  font-size: 0.6rem; text-transform: uppercase; flex-shrink: 0; min-width: 68px; text-align: center;
+}
+.log-crew--purple  { background: var(--purple-glow); color: var(--purple); }
+.log-crew--info    { background: var(--blue-glow); color: var(--blue); }
+.log-crew--default { background: var(--green-glow); color: var(--green); }
+.log-crew--muted   { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+.log-mode {
+  font-size: 0.58rem; flex-shrink: 0; font-weight: 600;
+  padding: 1px 6px; border-radius: var(--radius-sm); letter-spacing: 0.04em;
+}
+.log-mode--live { background: var(--green-glow); color: var(--green); }
+.log-mode--dry  { background: var(--amber-glow); color: var(--amber); }
+.log-result {
+  color: var(--text-secondary); flex: 1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.7rem;
+}

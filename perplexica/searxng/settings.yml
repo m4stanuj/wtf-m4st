@@ -1,0 +1,21 @@
+# SearXNG settings for M4ST Perplexica
+use_default_settings: true
+
+search:
+  formats:
+    - html
+    - json
+  safe_search: 0
+  autocomplete: "google"
+
+server:
+  secret_key: "m4st-searxng-secret-key-2026"
+  limiter: false
+  image_proxy: true
+
+ui:
+  static_use_hash: true
+
+engines:
+  - name: wolframalpha
+    disabled: false
