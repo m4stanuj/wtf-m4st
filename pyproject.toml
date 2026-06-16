@@ -1,0 +1,28 @@
+[project]
+name = "wtf-m4st"
+version = "8.2.0"
+description = "Autonomous AI Agent Stack on a single Windows machine"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "crewai>=1.14.0",
+    "crewai-tools>=1.14.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "langchain-openai>=0.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.28",
+    "ruff>=0.9.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

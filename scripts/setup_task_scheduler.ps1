@@ -47,12 +47,9 @@ powercfg /change standby-timeout-ac 0
 powercfg /change monitor-timeout-ac 30
 Write-Host "[OK] Power plan: sleep disabled on AC, monitor off after 30min" -ForegroundColor Green
 
-# ── Nightly cycle tasks ──────────────────────────────────────────────
-New-M4STTask -Name "NightlyCrew"  -Time "23:00" -Script "crews/nightly_crew.py"  -Description "M4ST: GitHub scan + nightly report crew"
-New-M4STTask -Name "ContentCrew"  -Time "01:00" -Script "crews/content_crew.py"  -Description "M4ST: Content research and draft crew"
-New-M4STTask -Name "CogneeReindex"-Time "02:00" -Script "scripts/cognee_full_reindex.py" -Description "M4ST: Full Cognee knowledge graph reindex"
-New-M4STTask -Name "BugfixCrew"   -Time "03:00" -Script "crews/bugfix_crew.py"   -Description "M4ST: Automated bug fix crew → PR"
-New-M4STTask -Name "MorningReport"-Time "07:00" -Script "scripts/nightly_telegram_report.py" -Description "M4ST: Telegram morning report"
+# ── Nightly cycle task (Sequential Runner) ──────────────────────────
+New-M4STTask -Name "SequentialRunner" -Time "23:00" -Script "scripts/run_all_crews.py" -Description "M4ST: Sequential execution of all nightly crews and tasks"
+
 
 # ── Docker Desktop startup on login ─────────────────────────────────
 $dockerPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"

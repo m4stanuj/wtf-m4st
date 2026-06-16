@@ -60,7 +60,7 @@ The core idea: **own the orchestration, memory, tools, and observability locally
 
 <div align="center">
 <img src="docs/screenshot_dashboard.png" alt="WTF M4ST Command Center" width="800"/>
-<br/><em>Command Center — 9 services monitored, crew control, logs, architecture map</em>
+<br/><em>Command Center — 15 services monitored, crew control, logs, architecture map</em>
 </div>
 
 ---
@@ -250,7 +250,7 @@ Web crawling with anti-detection and structured data extraction.
 # Stop when done
 ./scripts/start_crawl.sh stop       # Container auto-removed (--rm)
 ```
-> ⚠️ **CVE-2026-26216** (CVSS 10.0) — always use v0.8.9+ (patched image auto-pulled).
+> ⚠️ **Crawl4AI RCE Advisory** (CVSS 10.0) — always use v0.8.9+ (patched image auto-pulled) to mitigate vulnerabilities. [View Security Advisory](https://github.com/crawl4ai/crawl4ai/security/advisories)
 
 ### Pentest MCP (88 Security Tools)
 Full offensive security toolkit via MCP — nmap, sqlmap, nikto, gobuster, dirb, hydra, and more.
@@ -327,7 +327,7 @@ Full audit trail for every LLM call in the system.
 - Connected via **OpenLit → OTEL** pipeline (already wired in all crew code)
 
 ### Uptime Kuma
-- **9 service health monitors** — checks every 30 seconds
+- **15 service health monitors** — checks every 30 seconds
 - **Telegram alerts** — instant notification when any service goes down
 - **Uptime history** — track reliability over time
 
@@ -343,7 +343,7 @@ Built with **6 reusable components, 5 custom React hooks, 8 page sections.**
 
 | Feature | Description |
 |---------|-------------|
-| **Service Health** | Live status dots for all 9 Docker services |
+| **Service Health** | Live status dots for all 15 Docker services |
 | **RAM Gauge** | Real-time Docker container memory via `docker stats` |
 | **Crew Control** | Trigger any crew with ▶ Run / 🧪 Dry Run buttons |
 | **Log Viewer** | Timestamped crew execution logs with color-coded crew badges |
@@ -366,7 +366,7 @@ OpenWork MCP exposes these endpoints at `:8765`:
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/health` | — | Service health for all 9 services |
+| `GET` | `/health` | — | Service health for all 15 services |
 | `GET` | `/api/ram` | — | Docker RAM usage per container |
 | `GET` | `/api/logs?limit=25` | — | Recent crew execution logs |
 | `GET` | `/api/system-info` | — | System metadata (version, platform, crew list) |
@@ -531,7 +531,7 @@ wtf-m4st/
 
 ## 🗺️ Roadmap
 
-- [ ] GitHub Actions CI pipeline for automated dry-run tests
+- [x] GitHub Actions CI pipeline for automated dry-run tests
 - [ ] Webhook endpoint for real-time GitHub event triggers
 - [ ] Crew result → Graphiti memory auto-persistence
 - [ ] Multi-machine deployment with Docker Swarm

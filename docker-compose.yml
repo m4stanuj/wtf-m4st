@@ -1,59 +1,288 @@
 version: "3.9"
+
+# ================================================================
+# M4ST v8.2-local — Unified Docker Compose Stack
+# ================================================================
+
+networks:
+  m4st:
+    driver: bridge
+
+volumes:
+  falkordb_data:
+  langfuse_postgres_data:
+  langfuse_clickhouse_data:
+  uptime_kuma_data:
+  librechat_mongodb:
+  librechat_meilisearch:
+  perplexica_data:
+  ollama_models:
+
 services:
+
+  # ── Core Runtime ─────────────────────────────────────────────
   openclaw:
-    image: openclaw/openclaw:latest
+    image: ghcr.io/openclaw/openclaw:latest
     restart: unless-stopped
     mem_limit: 600m
+    mem_reservation: 150m
+    networks: [m4st]
     ports: ["3001:3001"]
+    env_file: .env
+    volumes:
+      - ./logs:/app/logs
+      - ./drafts:/app/drafts
 
+  # ── LLM Router + MITM ────────────────────────────────────────
   ninerouter:
-    image: decolua/9router:latest
+    image: decolua/9router:0.4.80
     restart: unless-stopped
     mem_limit: 300m
-    ports: ["20128:20128", "20129:20129"]
+    mem_reservation: 50m
+    networks: [m4st]
+    ports:
+      - "20128:20128"   # API + dashboard
+      - "20129:20129"   # MITM proxy (intercepts IDE LLM calls)
 
+  # ── Graph DB (for Graphiti) ───────────────────────────────────
   falkordb:
-    image: falkordb/falkordb:latest
+    image: falkordb/falkordb:4.14.10
     restart: unless-stopped
     mem_limit: 1200m
-    ports: ["6379:6379"]
+    mem_reservation: 300m
+    networks: [m4st]
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - falkordb_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # ── Temporal Memory MCP (SSE) ────────────────────────────────
   graphiti-mcp:
-    image: chen9z/graphiti_mcp_server:latest
+    build:
+      context: ./graphiti_mcp_server
+      dockerfile: Dockerfile
     restart: unless-stopped
     mem_limit: 500m
-    ports: ["8001:8001"]
+    mem_reservation: 100m
+    networks: [m4st]
+    ports: ["8001:8000"]
     environment:
       - FALKORDB_URI=bolt://falkordb:6379
+      - OPENAI_API_KEY=${NINEROUTER_API_KEY}
+      - OPENAI_BASE_URL=${NINEROUTER_BASE_URL}
+      - MODEL=${MODEL_FAST}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
+  # ── Project Knowledge Graph MCP ───────────────────────────────
   cognee-mcp:
-    image: cognee/cognee-mcp:main
+    image: cognee/cognee-mcp:0.1.19
     restart: unless-stopped
     mem_limit: 600m
+    mem_reservation: 150m
+    networks: [m4st]
     ports: ["8000:8000"]
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
+  # ── LLM Observability Database ──────────────────────────────
+  langfuse-db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    mem_limit: 300m
+    mem_reservation: 50m
+    networks: [m4st]
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: ${LANGFUSE_POSTGRES_PASSWORD:-langfuse}
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d langfuse -U langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── ClickHouse (Langfuse v3) ──────────────────────────────────
+  langfuse-clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    restart: unless-stopped
+    mem_limit: 400m
+    mem_reservation: 100m
+    networks: [m4st]
+    environment:
+      CLICKHOUSE_DB: langfuse
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-langfuse}
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Langfuse ──────────────────────────────────────────────────
   langfuse:
-    image: langfuse/langfuse:latest
+    image: langfuse/langfuse:3
     restart: unless-stopped
     mem_limit: 700m
+    mem_reservation: 200m
+    networks: [m4st]
     ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: postgresql://langfuse:${LANGFUSE_POSTGRES_PASSWORD:-langfuse}@langfuse-db:5432/langfuse
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse:${LANGFUSE_CLICKHOUSE_PASSWORD:-langfuse}@langfuse-clickhouse:9000/langfuse
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-langfuse}
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-m4st-langfuse-secret-change-me}
+      SALT: ${LANGFUSE_SALT:-m4st-langfuse-salt-change-me}
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
 
+  # ── Service Health Monitor ────────────────────────────────────
   uptime-kuma:
     image: louislam/uptime-kuma:2
     restart: unless-stopped
     mem_limit: 250m
+    mem_reservation: 50m
+    networks: [m4st]
     ports: ["3002:3001"]
+    volumes:
+      - uptime_kuma_data:/app/data
 
+  # ── IDE Tool/Memory Bridge ────────────────────────────────────
   openwork-mcp:
-    build: ./openwork-mcp
+    build:
+      context: ./openwork-mcp
+      dockerfile: Dockerfile
     restart: unless-stopped
     mem_limit: 250m
+    mem_reservation: 50m
+    networks: [m4st]
     ports: ["8765:8765"]
     environment:
-      - M4ST_TOKEN=default_secret_token
+      - M4ST_TOKEN=${M4ST_TOKEN:?M4ST_TOKEN must be set in .env}
+      - M4ST_ALLOWED_COMMANDS=${M4ST_ALLOWED_COMMANDS:-git,npm,python,pytest}
+    env_file: .env
+    depends_on:
+      openclaw:
+        condition: service_started
+      graphiti-mcp:
+        condition: service_healthy
+      cognee-mcp:
+        condition: service_healthy
 
+  # ── Claude Code Session Proxy ─────────────────────────────────
   sepcc:
-    build: ./sepcc
+    build:
+      context: ./sepcc
+      dockerfile: Dockerfile
     restart: unless-stopped
     mem_limit: 100m
+    mem_reservation: 20m
+    networks: [m4st]
     ports: ["8082:8082"]
+    env_file: .env
+    environment:
+      - FCC_AUTO_RESUME_LAST_SESSION=true
+
+  # ── Perplexica AI Search ──────────────────────────────────────
+  perplexica:
+    image: itzcrazykns1337/vane:latest
+    restart: unless-stopped
+    mem_limit: 500m
+    mem_reservation: 100m
+    networks: [m4st]
+    ports: ["3010:3000"]
+    volumes:
+      - perplexica_data:/home/vane/data
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+
+  # ── LibreChat MongoDB ─────────────────────────────────────────
+  librechat-mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    mem_limit: 300m
+    mem_reservation: 50m
+    networks: [m4st]
+    volumes:
+      - librechat_mongodb:/data/db
+    command: mongod --noauth
+
+  # ── LibreChat Meilisearch ─────────────────────────────────────
+  librechat-meilisearch:
+    image: getmeili/meilisearch:v1.12
+    restart: unless-stopped
+    mem_limit: 150m
+    mem_reservation: 30m
+    networks: [m4st]
+    environment:
+      - MEILI_NO_ANALYTICS=true
+      - MEILI_MASTER_KEY=m4st-meili-master-key
+    volumes:
+      - librechat_meilisearch:/meili_data
+
+  # ── LibreChat ─────────────────────────────────────────────────
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    restart: unless-stopped
+    mem_limit: 400m
+    mem_reservation: 100m
+    networks: [m4st]
+    ports: ["3080:3080"]
+    environment:
+      - HOST=0.0.0.0
+      - MONGO_URI=mongodb://librechat-mongodb:27017/LibreChat
+      - MEILI_HOST=http://librechat-meilisearch:7700
+      - MEILI_MASTER_KEY=m4st-meili-master-key
+      - ENDPOINTS=openAI,custom
+      - OPENAI_API_KEY=${GROQ_API_KEY}
+      - OPENAI_REVERSE_PROXY=http://ninerouter:20128/v1
+      - SEARCH=true
+      - NO_INDEX=true
+    depends_on:
+      librechat-mongodb:
+        condition: service_started
+      librechat-meilisearch:
+        condition: service_started
+      ninerouter:
+        condition: service_started
+
+  # ── Ollama (Offline Mode) ─────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    mem_limit: 8000m
+    mem_reservation: 4000m
+    ports: ["127.0.0.1:11434:11434"]
+    networks: [m4st]
+    volumes:
+      - ollama_models:/root/.ollama
+    profiles: ["offline"]

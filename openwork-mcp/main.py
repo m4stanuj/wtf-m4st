@@ -21,17 +21,22 @@ app.add_middleware(
 )
 
 # Read token from environment
-M4ST_TOKEN = os.getenv("M4ST_TOKEN", "default_secret_token")
+M4ST_TOKEN = os.getenv("M4ST_TOKEN", "").strip()
 
 # Paths
 BASE_DIR = Path(__file__).parent.parent  # m4st_project root
 LOGS_DIR = BASE_DIR / "logs"
 DASHBOARD_DIR = BASE_DIR / "dashboard"
 
+# Read allowed commands from environment
+M4ST_ALLOWED_COMMANDS = os.getenv("M4ST_ALLOWED_COMMANDS", "git,python,pytest").strip()
+
 # Dependency to verify token
 def verify_token(x_m4st_token: Optional[str] = Header(None)):
-    if x_m4st_token != M4ST_TOKEN:
-        raise HTTPException(status_code=401, detail="Unauthorized: Invalid M4ST Token")
+    if not M4ST_TOKEN or M4ST_TOKEN == "default_secret_token":
+        raise HTTPException(status_code=401, detail="Unauthorized: Server M4ST Token is not set or using unsafe default.")
+    if not x_m4st_token or x_m4st_token.strip() != M4ST_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid or missing M4ST Token")
     return x_m4st_token
 
 class ExecuteRequest(BaseModel):
@@ -66,8 +71,16 @@ async def health():
         "falkordb": "unknown",
         "graphiti-mcp": "unknown",
         "cognee-mcp": "unknown",
+        "langfuse-db": "unknown",
+        "langfuse-clickhouse": "unknown",
         "langfuse": "unknown",
-        "uptime-kuma": "unknown"
+        "uptime-kuma": "unknown",
+        "sepcc": "unknown",
+        "perplexica": "unknown",
+        "librechat-mongodb": "unknown",
+        "librechat-meilisearch": "unknown",
+        "librechat": "unknown",
+        "ollama": "unknown"
     }
     
     async def check_http(url: str) -> str:
@@ -78,25 +91,37 @@ async def health():
         except Exception:
             return "down"
 
+    def check_socket(host: str, port: int) -> str:
+        import socket
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(1.0)
+            s.connect((host, port))
+            s.close()
+            return "healthy"
+        except Exception:
+            return "down"
+
     services["openclaw"] = await check_http("http://openclaw:3001/")
     services["ninerouter"] = await check_http("http://ninerouter:20128/dashboard")
-    services["graphiti-mcp"] = await check_http("http://graphiti-mcp:8001/sse")
+    services["falkordb"] = check_socket("falkordb", 6379)
+    services["graphiti-mcp"] = await check_http("http://graphiti-mcp:8000/")
     services["cognee-mcp"] = await check_http("http://cognee-mcp:8000/")
+    services["langfuse-db"] = check_socket("langfuse-db", 5432)
+    services["langfuse-clickhouse"] = await check_http("http://langfuse-clickhouse:8123/ping")
     services["langfuse"] = await check_http("http://langfuse:3000/")
     services["uptime-kuma"] = await check_http("http://uptime-kuma:3001/")
-    
-    # Check falkordb
-    try:
-        import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(1.0)
-        s.connect(("falkordb", 6379))
-        s.close()
-        services["falkordb"] = "healthy"
-    except Exception:
-        services["falkordb"] = "down"
+    services["sepcc"] = check_socket("sepcc", 8082)
+    services["perplexica"] = await check_http("http://perplexica:3000/")
+    services["librechat-mongodb"] = check_socket("librechat-mongodb", 27017)
+    services["librechat-meilisearch"] = await check_http("http://librechat-meilisearch:7700/health")
+    services["librechat"] = await check_http("http://librechat:3080/")
+    services["ollama"] = await check_http("http://ollama:11434/")
 
-    is_overall_healthy = all(status == "healthy" or name == "uptime-kuma" for name, status in services.items())
+    is_overall_healthy = all(
+        status == "healthy" or name in ("uptime-kuma", "ollama") 
+        for name, status in services.items()
+    )
     
     return {
         "status": "healthy" if is_overall_healthy else "degraded",
@@ -219,6 +244,23 @@ async def get_logs(limit: int = 25):
 
 @app.post("/execute", dependencies=[Depends(verify_token)])
 async def execute(req: ExecuteRequest):
+    # Parse allowed commands
+    allowed = [cmd.strip() for cmd in M4ST_ALLOWED_COMMANDS.split(",") if cmd.strip()]
+    
+    # Simple validation: extract the base command (first token)
+    cmd_tokens = req.task.strip().split()
+    if not cmd_tokens:
+        raise HTTPException(status_code=400, detail="Empty command task provided")
+    
+    base_cmd = cmd_tokens[0]
+    
+    # If the whitelist doesn't contain '*' (allow all) and the base command is not in the allowed list, reject it
+    if "*" not in allowed and base_cmd not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Command '{base_cmd}' is not allowed. Allowed commands: {M4ST_ALLOWED_COMMANDS}"
+        )
+        
     try:
         # Execute shell command in the container
         process = subprocess.run(
