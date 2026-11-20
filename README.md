@@ -48,7 +48,7 @@ A **personal AI automation platform** that combines:
 
 - **15+ Docker services** — always-on core + on-demand tools, all on a single machine
 - **7 MCP servers** — OpenWork, Graphiti, Cognee, Composio, Google Workspace, Exa Search, Pentest — plug into any MCP-compatible IDE
-- **9Router LLM gateway** — one unified API endpoint to **20+ LLM providers** + **MITM proxy** that intercepts IDE LLM calls
+- **9Router LLM gateway** — one API endpoint for configured LLM providers
 - **3 CrewAI crews (11 agents)** — autonomous nightly pipelines for repo scanning, content creation, and bug fixing
 - **Graph-based memory** — episodic memory (Graphiti) + knowledge graphs (Cognee) that persist across sessions
 - **Full LLM observability** — every API call traced via Langfuse with token counts, latency, and cost breakdowns
@@ -144,7 +144,7 @@ OpenWork MCP (:8765) ─── FastAPI bridge ──→ triggers crews, serves d
 | **Anthropic** | Claude 3.5 Sonnet (via SEPCC proxy) | Pay-as-you-go | 📝 Best long-context |
 | **Ollama** | Any local model (Llama, Mistral, Phi) | Free (self-hosted) | 🔒 Fully offline / private |
 
-**MITM Proxy (`:20129`):** 9Router can intercept LLM calls from **any IDE** (Antigravity, Cursor, Windsurf) transparently. Install the CA cert → set system proxy → all IDE traffic routes through 9Router for tracing + model swapping.
+Configure supported clients to use the gateway API directly. The supplied Compose files publish the gateway API on loopback and leave the interception port unpublished.
 
 > **Zero vendor lock-in.** Every crew talks to 9Router, not directly to providers. Swap the entire LLM backend in one env var change.
 

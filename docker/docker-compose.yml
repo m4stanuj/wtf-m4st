@@ -37,7 +37,6 @@ services:
     networks: [m4st]
     ports:
       - "127.0.0.1:20128:20128"
-      - "127.0.0.1:20129:20129"
 
   falkordb:
     image: falkordb/falkordb:latest
