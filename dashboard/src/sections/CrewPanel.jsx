@@ -1,15 +1,14 @@
 import GlassCard from '../components/GlassCard';
 import Badge from '../components/Badge';
-import Button from '../components/Button';
 import { CREWS } from '../config';
 import './CrewPanel.css';
 
-export default function CrewPanel({ onRunCrew, onRunAll, runningCrews }) {
+export default function CrewPanel() {
   return (
     <GlassCard hoverable={false}>
       <div className="panel-header">
-        <h2 className="panel-title"><span>🤖</span> Crew Control</h2>
-        <Badge text="READY" variant="default" />
+        <h2 className="panel-title"><span>🤖</span> Crew Reference</h2>
+        <Badge text="READ ONLY" variant="default" />
       </div>
       <div className="panel-body">
         <div className="crew-list">
@@ -30,24 +29,9 @@ export default function CrewPanel({ onRunCrew, onRunAll, runningCrews }) {
                   <div className="crew-card-schedule">⏰ {crew.schedule}</div>
                 </div>
               </div>
-              <div className="crew-card-actions">
-                <Button
-                  variant="primary" size="sm"
-                  loading={runningCrews[crew.file]}
-                  onClick={() => onRunCrew(crew.file, false)}
-                >▶ Run</Button>
-                <Button
-                  size="sm"
-                  loading={runningCrews[crew.file]}
-                  onClick={() => onRunCrew(crew.file, true)}
-                >🧪 Dry</Button>
-              </div>
             </div>
           ))}
         </div>
-        <Button variant="primary" fullWidth onClick={() => onRunAll(true)} style={{ marginTop: '1rem' }}>
-          🧪 Dry Run All Crews
-        </Button>
       </div>
     </GlassCard>
   );

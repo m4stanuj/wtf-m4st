@@ -130,17 +130,14 @@ services:
     mem_limit: 500m
     networks: [m4st, m4st-internal]
     ports: ["127.0.0.1:8765:8765"]
-    env_file: *default-env
     environment:
       M4ST_TOKEN: ${M4ST_TOKEN:-}
       M4ST_ADMIN_TOKENS: ${M4ST_ADMIN_TOKENS:-}
       M4ST_READ_TOKENS: ${M4ST_READ_TOKENS:-}
     volumes:
-      - ../logs:/app/logs
-      - ../drafts:/app/drafts
-      - ../reports:/app/reports
+      - ../logs:/app/logs:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/ready', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3

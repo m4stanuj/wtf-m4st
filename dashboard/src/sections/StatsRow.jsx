@@ -14,21 +14,21 @@ export default function StatsRow({ healthyCount, ram, totalRuns }) {
 
       <GlassCard className="stat-card stat-card--amber">
         <div className="stat-icon">🧠</div>
-        <div className="stat-value">{ram.usedGb.toFixed(1)}<span className="stat-unit">GB</span></div>
+        <div className="stat-value">{ram.offline ? '—' : <>{ram.usedGb.toFixed(1)}<span className="stat-unit">GB</span></>}</div>
         <div className="stat-label">RAM Usage</div>
-        <RamBar used={ram.usedGb} total={ram.totalGb} />
+        {!ram.offline && <RamBar used={ram.usedGb} total={ram.totalGb} />}
       </GlassCard>
 
       <GlassCard className="stat-card stat-card--blue">
         <div className="stat-icon">🤖</div>
         <div className="stat-value">{CREWS.length}</div>
-        <div className="stat-label">AI Crews Ready</div>
+        <div className="stat-label">Crews in Reference</div>
       </GlassCard>
 
       <GlassCard className="stat-card stat-card--purple">
         <div className="stat-icon">📊</div>
         <div className="stat-value">{totalRuns || '—'}</div>
-        <div className="stat-label">Total Runs</div>
+        <div className="stat-label">Recent Log Entries</div>
       </GlassCard>
     </div>
   );

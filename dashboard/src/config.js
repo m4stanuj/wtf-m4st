@@ -5,10 +5,8 @@
 
 // API Configuration
 export const API_BASE = import.meta.env.VITE_API_BASE || '';
-export const API_TOKEN = import.meta.env.VITE_API_TOKEN || '';
-
-export function authHeaders(extra = {}) {
-  return API_TOKEN ? { ...extra, 'X-M4ST-Token': API_TOKEN } : extra;
+export function authHeaders(token) {
+  return token ? { 'X-M4ST-Token': token } : {};
 }
 
 // Polling intervals
@@ -48,7 +46,7 @@ export const SERVICES = [
     layer: 'core',
     ram: 200,
     icon: '🔌',
-    description: 'IDE bridge — tools + memory + dashboard'
+    description: 'Monitoring dashboard and authenticated read APIs'
   },
   {
     id: 'sepcc',

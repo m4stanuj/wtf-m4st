@@ -58,11 +58,9 @@ services:
       M4ST_READ_TOKENS: ${M4ST_READ_TOKENS:-}
       M4ST_CORS_ORIGINS: ${M4ST_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:8765,http://127.0.0.1:8765}
     volumes:
-      - ./logs:/app/logs
-      - ./drafts:/app/drafts
-      - ./reports:/app/reports
+      - ./logs:/app/logs:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/health', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/ready', timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3

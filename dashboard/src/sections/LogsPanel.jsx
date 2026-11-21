@@ -19,7 +19,7 @@ function formatTime(ts) {
   } catch { return ts; }
 }
 
-export default function LogsPanel({ logs, loading, onRefresh }) {
+export default function LogsPanel({ logs, loading, error, onRefresh }) {
   const sorted = [...logs].reverse();
 
   return (
@@ -29,8 +29,10 @@ export default function LogsPanel({ logs, loading, onRefresh }) {
         <Button size="sm" onClick={onRefresh} loading={loading}>↻ Refresh</Button>
       </div>
       <div className="panel-body">
-        {sorted.length === 0 ? (
-          <div className="logs-empty">No logs yet — run a crew to generate logs.</div>
+        {error ? (
+          <div className="logs-empty" role="status">{error}</div>
+        ) : sorted.length === 0 ? (
+          <div className="logs-empty">No logs recorded yet.</div>
         ) : (
           <div className="logs-scroll">
             {sorted.map((log, i) => (

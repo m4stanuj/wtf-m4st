@@ -1,10 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useHealth } from './hooks/useHealth';
 import { useRam } from './hooks/useRam';
 import { useLogs } from './hooks/useLogs';
 import { useToast } from './hooks/useToast';
-import { useCrewRunner } from './hooks/useCrewRunner';
-import { API_BASE, authHeaders } from './config';
 
 import ToastContainer from './components/Toast';
 import Header from './sections/Header';
@@ -21,9 +19,9 @@ import './App.css';
 export default function App() {
   const { toasts, showToast, dismissToast } = useToast();
   const { data: health, isConnected, isLive, refresh: refreshHealth, healthyCount } = useHealth();
-  const ram = useRam();
-  const { logs, loading: logsLoading, refresh: refreshLogs, totalRuns } = useLogs();
-  const { runCrew, runAll, runningCrews } = useCrewRunner(showToast);
+  const [token, setToken] = useState('');
+  const ram = useRam(token);
+  const { logs, loading: logsLoading, error: logsError, refresh: refreshLogs, totalRuns } = useLogs(token);
 
   const handleRefresh = useCallback(() => {
     refreshHealth();
@@ -31,44 +29,35 @@ export default function App() {
     showToast('Status refreshed', 'info');
   }, [refreshHealth, refreshLogs, showToast]);
 
-  const handleTestMemory = useCallback(async () => {
-    showToast('Testing Graphiti memory...', 'info');
-    try {
-      const res = await fetch(`${API_BASE}/memory/query`, {
-        method: 'POST',
-        headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ query: 'What was our last conversation about?', type: 'conversation' }),
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      showToast('Memory query successful', 'success');
-    } catch (err) {
-      showToast(`Memory query failed: ${err.message}`, 'error');
-    }
-  }, [showToast]);
-
-  const handleRunCrew = useCallback(async (file, isDry) => {
-    await runCrew(file, isDry);
-    setTimeout(refreshLogs, 2000);
-  }, [runCrew, refreshLogs]);
-
   return (
     <div className="app">
       <Header status={health?.status} isConnected={isConnected} isLive={isLive} />
+
+      <form className="section-gap" onSubmit={(event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        setToken(String(new FormData(form).get('token') || '').trim());
+        form.reset();
+      }}>
+        <label htmlFor="monitoring-token">Monitoring token</label>{' '}
+        <input id="monitoring-token" name="token" type="password" autoComplete="off" required />{' '}
+        <button type="submit">Apply</button>{' '}
+        {token && <button type="button" onClick={() => setToken('')}>Clear token</button>}
+      </form>
 
       <StatsRow healthyCount={healthyCount} ram={ram} totalRuns={totalRuns} />
 
       <div className="main-grid">
         <ServicesPanel services={health?.services} />
-        <CrewPanel onRunCrew={handleRunCrew} onRunAll={runAll} runningCrews={runningCrews} />
+        <CrewPanel />
       </div>
 
       <div className="section-gap">
-        <QuickActions onRefresh={handleRefresh} onTestMemory={handleTestMemory} />
+        <QuickActions onRefresh={handleRefresh} />
       </div>
 
       <div className="section-gap">
-        <LogsPanel logs={logs} loading={logsLoading} onRefresh={refreshLogs} />
+        <LogsPanel logs={token ? logs : []} loading={logsLoading} error={logsError} onRefresh={refreshLogs} />
       </div>
 
       <div className="section-gap">

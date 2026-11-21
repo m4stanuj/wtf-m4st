@@ -10,17 +10,25 @@ const OFFLINE_RAM = {
   offline: true,
 };
 
-export function useRam() {
+export function useRam(token) {
   const [ram, setRam] = useState(OFFLINE_RAM);
 
   const refresh = useCallback(async () => {
+    if (!token) {
+      setRam(OFFLINE_RAM);
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/api/ram`, {
-        headers: authHeaders(),
+        headers: authHeaders(token),
         signal: AbortSignal.timeout(3000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (!data.available) {
+        setRam(OFFLINE_RAM);
+        return;
+      }
       const pct = Math.round((data.used_gb / data.total_gb) * 100);
       setRam({
         usedGb: data.used_gb,
@@ -33,7 +41,7 @@ export function useRam() {
     } catch {
       setRam(OFFLINE_RAM);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const initial = setTimeout(refresh, 0);

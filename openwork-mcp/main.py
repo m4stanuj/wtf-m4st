@@ -1,18 +1,17 @@
 import os
 import json
 import subprocess
-import shlex
-import asyncio
+from collections import deque
 import httpx
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Header, Depends, Query
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Optional
 
-app = FastAPI(title="OpenWork MCP Bridge", version="2.0.0", description="M4ST local IDE bridge + dashboard backend")
+app = FastAPI(title="M4ST Monitoring Dashboard", version="2.1.0")
 
 # ── CORS (for local dashboard dev) ────────────────────────────
 app.add_middleware(
@@ -38,13 +37,7 @@ def _token_set(*env_names: str) -> set[str]:
         tokens.update(token.strip() for token in raw.split(",") if token.strip())
     return tokens - INSECURE_TOKENS
 
-ADMIN_TOKENS = _token_set("M4ST_ADMIN_TOKENS", "M4ST_TOKEN")
-READ_TOKENS = _token_set("M4ST_READ_TOKENS") | ADMIN_TOKENS
-ALLOWED_COMMANDS = {
-    cmd.strip()
-    for cmd in os.getenv("M4ST_ALLOWED_COMMANDS", "git,npm,python,pytest").split(",")
-    if cmd.strip()
-}
+READ_TOKENS = _token_set("M4ST_READ_TOKENS", "M4ST_ADMIN_TOKENS", "M4ST_TOKEN")
 
 # Paths
 BASE_DIR = Path(__file__).parent.parent  # m4st_project root
@@ -58,38 +51,15 @@ def verify_read_token(x_m4st_token: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Unauthorized: invalid read token")
     return x_m4st_token
 
-def verify_read_token_value(token: Optional[str]):
-    if not READ_TOKENS:
-        raise HTTPException(status_code=503, detail="Read token is not configured")
-    if token not in READ_TOKENS:
-        raise HTTPException(status_code=401, detail="Unauthorized: invalid read token")
-    return token
-
-def verify_admin_token(x_m4st_token: Optional[str] = Header(None)):
-    if not ADMIN_TOKENS:
-        raise HTTPException(status_code=503, detail="Admin token is not configured")
-    if x_m4st_token not in ADMIN_TOKENS:
-        raise HTTPException(status_code=401, detail="Unauthorized: invalid admin token")
-    return x_m4st_token
-
-class ExecuteRequest(BaseModel):
-    task: str
-    context: Optional[Dict[str, Any]] = None
 
 class MemoryQueryRequest(BaseModel):
     query: str
     type: str  # "conversation" or "code"
 
-class AgentRunRequest(BaseModel):
-    crew: str
-    params: Optional[Dict[str, Any]] = None
 
 class CogneeQueryRequest(BaseModel):
     query: str
 
-class GraphitiWriteRequest(BaseModel):
-    content: str
-    source: str
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -182,6 +152,7 @@ async def ram_usage():
                     total_mb += mb
             
             return {
+                "available": True,
                 "used_gb": round(total_mb / 1024, 2),
                 "total_gb": 16,
                 "containers": containers
@@ -189,13 +160,7 @@ async def ram_usage():
     except Exception:
         pass
     
-    # Fallback estimate
-    return {
-        "used_gb": 7.2,
-        "total_gb": 16,
-        "containers": {},
-        "estimated": True
-    }
+    return {"available": False}
 
 
 def parse_mem_to_mb(mem_str: str) -> float:
@@ -223,7 +188,7 @@ def parse_mem_to_mb(mem_str: str) -> float:
 # ═══════════════════════════════════════════════════════════════
 
 @app.get("/api/logs", dependencies=[Depends(verify_read_token)])
-async def get_logs(limit: int = 25):
+async def get_logs(limit: int = Query(25, ge=1, le=200)):
     """
     Read recent entries from automation_log.jsonl.
     Returns newest entries up to limit.
@@ -234,76 +199,24 @@ async def get_logs(limit: int = 25):
         return []
     
     try:
-        entries = []
+        entries = deque(maxlen=limit)
         with open(log_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
                     try:
-                        entries.append(json.loads(line))
+                        entry = json.loads(line)
+                        if isinstance(entry, dict):
+                            entries.append(entry)
                     except json.JSONDecodeError:
                         continue
         
-        # Return last N entries
-        return entries[-limit:]
+        return list(entries)
     
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read logs: {str(e)}")
+    except (OSError, UnicodeError):
+        raise HTTPException(status_code=500, detail="Failed to read logs.") from None
 
 
-@app.get("/api/logs/stream")
-async def stream_logs(token: Optional[str] = Query(None)):
-    """Stream automation log entries to the dashboard via SSE."""
-    verify_read_token_value(token)
-    log_path = LOGS_DIR / "automation_log.jsonl"
-
-    async def events():
-        position = 0
-        while True:
-            if log_path.exists():
-                with open(log_path, "r", encoding="utf-8") as f:
-                    f.seek(position)
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            yield f"data: {line}\n\n"
-                    position = f.tell()
-            await asyncio.sleep(1)
-
-    return StreamingResponse(events(), media_type="text/event-stream")
-
-
-# ═══════════════════════════════════════════════════════════════
-# ORIGINAL ENDPOINTS (preserved)
-# ═══════════════════════════════════════════════════════════════
-
-@app.post("/execute", dependencies=[Depends(verify_admin_token)])
-async def execute(req: ExecuteRequest):
-    if not req.task or len(req.task) > 500:
-        raise HTTPException(status_code=400, detail="Command is empty or too long")
-    args = shlex.split(req.task)
-    if not args:
-        raise HTTPException(status_code=400, detail="Command is empty")
-    if args[0] not in ALLOWED_COMMANDS:
-        raise HTTPException(status_code=403, detail=f"Command '{args[0]}' is not allowed")
-
-    try:
-        process = subprocess.run(
-            args,
-            capture_output=True,
-            text=True,
-            cwd=BASE_DIR,
-            timeout=30
-        )
-        return {
-            "stdout": process.stdout,
-            "stderr": process.stderr,
-            "exit_code": process.returncode
-        }
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=408, detail="Command execution timed out")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/memory/query", dependencies=[Depends(verify_read_token)])
 async def memory_query(req: MemoryQueryRequest):
@@ -326,27 +239,6 @@ async def memory_query(req: MemoryQueryRequest):
     else:
         raise HTTPException(status_code=400, detail="Invalid memory type. Must be 'conversation' or 'code'.")
 
-@app.post("/agent/run", dependencies=[Depends(verify_admin_token)])
-async def agent_run(req: AgentRunRequest):
-    allowed_crews = {"nightly_crew", "content_crew", "bugfix_crew"}
-    if req.crew not in allowed_crews:
-        raise HTTPException(status_code=400, detail="Invalid crew name")
-
-    crew_path = BASE_DIR / "crews" / f"{req.crew}.py"
-    if not crew_path.exists():
-        raise HTTPException(status_code=404, detail=f"Crew script {req.crew}.py not found")
-    
-    try:
-        # Build command with optional dry run
-        cmd = ["python", str(crew_path)]
-        if req.params and req.params.get("dry_run"):
-            cmd.append("--dry-run")
-        
-        # Start the script in the background
-        subprocess.Popen(cmd)
-        return {"status": "started", "crew": req.crew, "mode": "dry-run" if (req.params and req.params.get("dry_run")) else "live"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to launch crew: {str(e)}")
 
 @app.post("/cognee/query", dependencies=[Depends(verify_read_token)])
 async def cognee_query(req: CogneeQueryRequest):
@@ -357,17 +249,6 @@ async def cognee_query(req: CogneeQueryRequest):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to query Cognee: {str(e)}")
 
-@app.post("/graphiti/write", dependencies=[Depends(verify_admin_token)])
-async def graphiti_write(req: GraphitiWriteRequest):
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            res = await client.post("http://graphiti-mcp:8001/write", json={
-                "content": req.content,
-                "source": req.source
-            })
-            return res.json()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to write to Graphiti: {str(e)}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -399,6 +280,12 @@ elif DASHBOARD_DIR.exists():
     app.mount("/dashboard", StaticFiles(directory=str(DASHBOARD_DIR)), name="dashboard-static")
 
 
+@app.get("/ready")
+def readiness():
+    """Check that the dashboard process can serve requests."""
+    return {"status": "ready"}
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8765)
+    uvicorn.run(app, host=os.getenv("M4ST_DASHBOARD_HOST", "127.0.0.1"), port=8765)

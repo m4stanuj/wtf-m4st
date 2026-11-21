@@ -33,22 +33,20 @@ def test_logs_returns_list_with_read_token():
     assert isinstance(response.json(), list)
 
 
-def test_execute_rejects_unlisted_command():
+def test_dashboard_starts_without_service_dependencies():
     client = TestClient(load_app())
-    response = client.post(
-        "/execute",
-        headers={"X-M4ST-Token": "admin-test-token"},
-        json={"task": "powershell Get-ChildItem"},
-    )
-    assert response.status_code == 403
+    assert client.get("/ready").json() == {"status": "ready"}
 
-
-def test_execute_allows_whitelisted_command():
+def test_retired_routes_do_not_exist_even_with_legacy_admin_token():
     client = TestClient(load_app())
-    response = client.post(
-        "/execute",
-        headers={"X-M4ST-Token": "admin-test-token"},
-        json={"task": "python --version"},
-    )
-    assert response.status_code == 200
-    assert response.json()["exit_code"] == 0
+    for route in ("/execute", "/agent/run", "/graphiti/write"):
+        response = client.post(route, headers={"X-M4ST-Token": "admin-test-token"}, json={})
+        assert response.status_code == 404
+
+def test_logs_reject_url_tokens_and_unbounded_limits():
+    client = TestClient(load_app())
+    assert client.get("/api/logs/stream?token=read-test-token").status_code == 404
+    assert client.get("/api/logs?token=read-test-token").status_code == 401
+    for limit in (0, 201):
+        response = client.get(f"/api/logs?limit={limit}", headers={"X-M4ST-Token": "read-test-token"})
+        assert response.status_code == 422

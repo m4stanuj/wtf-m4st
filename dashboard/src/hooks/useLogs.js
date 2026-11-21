@@ -1,17 +1,22 @@
 import { useState, useCallback, useEffect } from 'react';
-import { API_BASE, API_TOKEN, authHeaders } from '../config';
+import { API_BASE, authHeaders } from '../config';
 
-export function useLogs() {
+export function useLogs(token) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
+    if (!token) {
+      setLogs([]);
+      setError('Enter a monitoring token to read logs.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${API_BASE}/api/logs?limit=25`, {
-        headers: authHeaders(),
+        headers: authHeaders(token),
         signal: AbortSignal.timeout(3000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -23,36 +28,16 @@ export function useLogs() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     const initial = setTimeout(refresh, 0);
-    return () => clearTimeout(initial);
-  }, [refresh]);
-
-  useEffect(() => {
-    if (!API_TOKEN) return undefined;
-
-    const base = API_BASE || window.location.origin;
-    const url = new URL('/api/logs/stream', base);
-    url.searchParams.set('token', API_TOKEN);
-    const source = new EventSource(url.toString());
-
-    source.onmessage = (event) => {
-      try {
-        const entry = JSON.parse(event.data);
-        setLogs((current) => [...current, entry].slice(-25));
-        setError(null);
-      } catch {
-        // Ignore malformed log lines; the polling fallback still handles history.
-      }
+    const timer = token ? setInterval(refresh, 5000) : null;
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
     };
-    source.onerror = () => {
-      setError('log stream disconnected');
-    };
-
-    return () => source.close();
-  }, []);
+  }, [refresh, token]);
 
   const totalRuns = logs.length;
 

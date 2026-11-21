@@ -62,3 +62,21 @@ jobs:
 
       - name: Build OpenWork Docker image
         run: docker build -f openwork-mcp/Dockerfile -t wtf-m4st-openwork:test .
+
+      - name: Smoke-test the standalone monitoring image
+        run: |
+          set -euo pipefail
+          name="m4st-monitor-ci-${GITHUB_RUN_ID}"
+          trap 'docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
+          token="ci-monitoring-fixture-only"
+          docker run --detach --name "$name" -p 127.0.0.1:8765:8765 -e "M4ST_READ_TOKENS=$token" wtf-m4st-openwork:test
+          base=http://127.0.0.1:8765
+          curl -fsS --retry 20 --retry-all-errors --retry-delay 2 --max-time 5 --retry-max-time 60 "$base/ready"
+          curl -fsS "$base/dashboard/" -o "$RUNNER_TEMP/m4st-dashboard.html"
+          js="$(grep -oE '/dashboard/assets/[^"]+\.js' "$RUNNER_TEMP/m4st-dashboard.html")"
+          curl -fsS "$base$js" -o /dev/null
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "$base/api/logs")" = 401
+          curl -fsS -H "X-M4ST-Token: $token" "$base/api/logs" | python3 -c 'import json,sys; assert json.load(sys.stdin) == []'
+          for route in execute agent/run graphiti/write; do
+            test "$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H "X-M4ST-Token: $token" "$base/$route")" = 404
+          done

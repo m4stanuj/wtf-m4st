@@ -307,7 +307,7 @@ The stack has **persistent, queryable memory** — not just logs.
 | **FalkorDB** | Graph database | Backend for Graphiti — stores nodes and edges |
 
 **How memory works:**
-- **Write:** Agents write context to Graphiti during crew runs (`/graphiti/write`)
+- **Write:** Graph memory writes are outside the monitoring dashboard.
 - **Query:** Future runs can query past decisions (`/memory/query?type=conversation`)
 - **Ingest:** Cognee processes documents into queryable knowledge graphs (`/cognee/query`)
 - **Embeddings:** Generated via free-tier API through 9Router
@@ -362,18 +362,16 @@ cd dashboard && npm run build                  # Prod: served at :8765/dashboard
 
 ## 🔌 API Reference
 
-OpenWork MCP exposes these endpoints at `:8765`:
+The monitoring dashboard listens on loopback port 8765. Configure `M4ST_READ_TOKENS` for read access and enter a token in the dashboard. The image contains the monitoring UI and API. Its historical shell, crew launch, and memory write endpoints were retired.
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
+| `GET` | `/ready` | — | Dashboard process readiness |
 | `GET` | `/health` | — | Service health for all 9 services |
-| `GET` | `/api/ram` | — | Docker RAM usage per container |
-| `GET` | `/api/logs?limit=25` | — | Recent crew execution logs |
+| `GET` | `/api/ram` | Token header | Docker RAM usage per container when available |
+| `GET` | `/api/logs?limit=25` | Token header | Latest log entries |
 | `GET` | `/api/system-info` | — | System metadata (version, platform, crew list) |
-| `POST` | `/agent/run` | Token | Trigger a crew (`dry_run` param supported) |
-| `POST` | `/execute` | Token | Execute shell command in container |
 | `POST` | `/memory/query` | Token | Query Graphiti (conversation) or Cognee (code) |
-| `POST` | `/graphiti/write` | Token | Write to Graphiti graph memory |
 | `POST` | `/cognee/query` | Token | Query Cognee knowledge graph |
 | `GET` | `/dashboard` | — | Serves the React Command Center |
 
@@ -382,11 +380,8 @@ OpenWork MCP exposes these endpoints at `:8765`:
 # Check service health
 curl http://localhost:8765/health
 
-# Trigger nightly crew (dry run)
-curl -X POST http://localhost:8765/agent/run \
-  -H "X-M4ST-Token: your-token" \
-  -H "Content-Type: application/json" \
-  -d '{"crew": "nightly_crew", "params": {"dry_run": true}}'
+# View logs with a locally configured token
+curl -H "X-M4ST-Token: ${DASHBOARD_READ_TOKEN}" 'http://localhost:8765/api/logs?limit=25'
 ```
 
 <details>

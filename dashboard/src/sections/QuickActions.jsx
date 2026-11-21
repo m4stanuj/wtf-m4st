@@ -2,7 +2,7 @@ import GlassCard from '../components/GlassCard';
 import Button from '../components/Button';
 import './QuickActions.css';
 
-export default function QuickActions({ onRefresh, onTestMemory }) {
+export default function QuickActions({ onRefresh }) {
   return (
     <GlassCard hoverable={false}>
       <div className="panel-header">
@@ -15,7 +15,6 @@ export default function QuickActions({ onRefresh, onTestMemory }) {
           <Button as="a" href="http://localhost:3000" target="_blank" rel="noopener noreferrer">📊 Langfuse</Button>
           <Button as="a" href="http://localhost:3002" target="_blank" rel="noopener noreferrer">🟢 Uptime Kuma</Button>
           <Button as="a" href="http://localhost:3001" target="_blank" rel="noopener noreferrer">🐾 OpenClaw</Button>
-          <Button onClick={onTestMemory}>🧠 Test Memory</Button>
         </div>
       </div>
     </GlassCard>
